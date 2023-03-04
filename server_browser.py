@@ -4,13 +4,37 @@ import json
 from bs4 import BeautifulSoup
 from PyQt5 import QtWidgets, QtGui, QtCore
 import re
-
+import time
+import pypresence
 
 class ServerBrowser(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.init_ui()
         self.update_server_list()
+
+        # Initialize the Discord Rich Presence client
+        self.client_id = '1081709857641615442'
+        self.RPC = pypresence.Presence(self.client_id)
+        self.RPC.connect()
+        # Update the Discord Rich Presence
+        try:
+            self.RPC.update(
+                details="SCUMLauncher",
+                state="Browsing SCUM Servers",
+                large_image="scum",
+                large_text="SCUMLauncher",
+                small_image="python",
+                small_text="Python 3.9.2",
+                start=time.time(),
+                party_id="pary182827",
+                party_size=[1, 5],
+                join="join123",
+                spectate="spectate123",
+            )
+        except pypresence.exceptions.InvalidPipe:
+            pass
+
 
     def init_ui(self):
         # Set the window title and size
@@ -136,7 +160,6 @@ class ServerBrowser(QtWidgets.QMainWindow):
         return filtered_list
 
 
-
     def sort_server_list(self, server_list):
         # Sort the server list based on the chosen sort key
         sort_key = self.sort_combo.currentText()
@@ -179,7 +202,15 @@ class ServerBrowser(QtWidgets.QMainWindow):
             self.table.setItem(i, 5, QtWidgets.QTableWidgetItem(str(ping)))
 
         self.update_player_count_label()
-        
+
+
+    def closeEvent(self, event):
+        # Disconnect the Discord Rich Presence client
+        self.RPC.close()
+        event.accept()
+
+
+
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
     server_browser = ServerBrowser()
