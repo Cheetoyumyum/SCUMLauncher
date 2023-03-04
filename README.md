@@ -12,4 +12,5 @@ Clicking on a server would bring up a informations screen showing playercount. M
 There will be a launch game option launching into the selected server after downloading the appropriate mods. 
 If there is discord tied to the server info. it should populate a discord join link that the user can click on.
 
-Should have discord integration.
+Should have discord RPC.
+
