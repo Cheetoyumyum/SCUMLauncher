@@ -1,4 +1,4 @@
-# ScumBrowser
+# SCUMLauncher
 Server browser for scum, meant to autosubscribe to any Workshop items in version 1.0 of the game
 
 
