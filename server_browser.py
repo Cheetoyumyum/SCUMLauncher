@@ -1,40 +1,17 @@
 import sys
-import requests
-import json
-from bs4 import BeautifulSoup
 from PyQt5 import QtWidgets, QtGui, QtCore
-import re
-import time
-import pypresence
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException
+
 
 class ServerBrowser(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.init_ui()
-        self.update_server_list()
-
-        # Initialize the Discord Rich Presence client
-        self.client_id = '1081709857641615442'
-        self.RPC = pypresence.Presence(self.client_id)
-        self.RPC.connect()
-        # Update the Discord Rich Presence
-        try:
-            self.RPC.update(
-                details="SCUMLauncher",
-                state="Browsing SCUM Servers",
-                large_image="scum",
-                large_text="SCUMLauncher",
-                small_image="python",
-                small_text="Python 3.9.2",
-                start=time.time(),
-                party_id="pary182827",
-                party_size=[1, 5],
-                join="join123",
-                spectate="spectate123",
-            )
-        except pypresence.exceptions.InvalidPipe:
-            pass
-
 
     def init_ui(self):
         # Set the window title and size
@@ -45,6 +22,26 @@ class ServerBrowser(QtWidgets.QMainWindow):
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #2C3539;
+            }
+
+            QMenuBar {
+                background-color: #18181a;
+                color: white;
+            }
+
+            QMenuBar::item {
+                background-color: #18181a;
+                color: white;
+            }
+
+            QMenu {
+                background-color: #18181a;
+                color: white;
+            }
+
+            QMenu::item {
+                background-color: #18181a;
+                color: white;
             }
 
             QLabel {
@@ -59,13 +56,83 @@ class ServerBrowser(QtWidgets.QMainWindow):
             QTableWidget {
                 color: white;
                 background-color: #3A3F3F;
+                alternate-background-color: #2C3539;
+                selection-color: white;
+                selection-background-color: #4F5B66;
             }
 
             QHeaderView::section {
                 background-color: #2C3539;
                 color: white;
             }
+
+            QCheckBox {
+                color: white;
+            }
+
+            QProgressBar {
+                color: white;
+                background-color: #3A3F3F;
+            }
+
+            QToolBar {
+                background-color: #18181a;
+                color: white;
+                border: none;
+            }
+
+            QToolButton {
+                background-color: #18181a;
+                color: white;
+                border: none;
+            }
+
+            QToolButton:hover {
+                background-color: #2C3539;
+            }
+
+            QStatusBar {
+                background-color: #18181a;
+                color: white;
+            }
+            
+            QProgressBar {
+                border: none;
+                text-align: center;
+                background-color: #3A3F3F;
+            }
+
+            QProgressBar::chunk {
+                background-color: #2ecc71;
+                border-radius: 5px;
+            }
+
+            QProgressBar::chunk:indeterminate {
+                border-radius: 5px;
+                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2ecc71, stop:1 #27ae60);
+                animation: pulse 2s ease-in-out infinite;
+            }
+
+            @keyframes pulse {
+                0% {
+                    border-color: #2ecc71;
+                    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2ecc71, stop:1 #27ae60);
+                    opacity: 0.5;
+                }
+                50% {
+                    border-color: #27ae60;
+                    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #27ae60, stop:1 #2ecc71);
+                    opacity: 0.75;
+                }
+                100% {
+                    border-color: #2ecc71;
+                    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2ecc71, stop:1 #27ae60);
+                    opacity: 0.5;
+                }
+            }
+
         """)
+
 
         # Create the central widget and layout
         central_widget = QtWidgets.QWidget()
@@ -73,7 +140,7 @@ class ServerBrowser(QtWidgets.QMainWindow):
         layout = QtWidgets.QVBoxLayout(central_widget)
 
         # Create the title label and player count label
-        title_label = QtWidgets.QLabel("Server Browser")
+        title_label = QtWidgets.QLabel("SCUMLauncher")
         title_label.setAlignment(QtCore.Qt.AlignCenter)
         title_font = QtGui.QFont()
         title_font.setPointSize(20)
@@ -81,135 +148,70 @@ class ServerBrowser(QtWidgets.QMainWindow):
         title_label.setFont(title_font)
 
         # Create the filter and sort widgets
-        filter_label = QtWidgets.QLabel("Filter:")
         language_label = QtWidgets.QLabel("Language:")
-        password_label = QtWidgets.QLabel("Password Protected:")
-
         self.language_combo = QtWidgets.QComboBox()
         self.language_combo.addItems(['English', 'German', 'French', 'Spanish', 'Italian'])
-
-        self.password_checkbox = QtWidgets.QCheckBox()
-
-        sort_label = QtWidgets.QLabel("Sort By:")
-
-        self.sort_combo = QtWidgets.QComboBox()
-        self.sort_combo.addItems(['Name', 'Players', 'Ping', 'Uptime'])
+        filters_label = QtWidgets.QLabel("Filters:")
+        self.filter_checkboxes = [QtWidgets.QCheckBox("Has Players"), QtWidgets.QCheckBox("PVP"), QtWidgets.QCheckBox("PVE"), QtWidgets.QCheckBox("PvPvE"), QtWidgets.QCheckBox("NO Mechs"), QtWidgets.QCheckBox("Discord Server"), QtWidgets.QCheckBox("Password Protected")]
 
         # Create the player count label
         self.player_count_label = QtWidgets.QLabel()
 
         # Create the server list table
         self.table = QtWidgets.QTableWidget()
+
         self.table.setColumnCount(6)
-        self.table.setHorizontalHeaderLabels(['Name', 'Uptime', 'Last Played', 'Map', 'Players', 'Ping'])
-        self.table.setAlternatingRowColors(True)
-        self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.setSortingEnabled(True)
+        self.table.setHorizontalHeaderLabels(["Server Name", "Players", "Map", "Language", "Uptime", "Ping"])
+
+        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+
+        # Create the loading spinner
+        self.progress_bar = QtWidgets.QProgressBar()
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setRange(0, 0)
+
+        # Add the progress bar to the layout
+        layout.addWidget(self.progress_bar)
+
 
         # Add the widgets to the layout
         layout.addWidget(title_label)
         layout.addWidget(self.player_count_label)
-        layout.addWidget(filter_label)
         filter_layout = QtWidgets.QHBoxLayout()
         filter_layout.addWidget(language_label)
         filter_layout.addWidget(self.language_combo)
-        filter_layout.addWidget(password_label)
-        filter_layout.addWidget(self.password_checkbox)
+        filter_layout.addWidget(filters_label)
+        for checkbox in self.filter_checkboxes:
+            filter_layout.addWidget(checkbox)
         layout.addLayout(filter_layout)
-        layout.addWidget(sort_label)
-        layout.addWidget(self.sort_combo)
+        layout.addWidget(self.progress_bar)
         layout.addWidget(self.table)
+        layout.addWidget(self.player_count_label)
+        layout.addWidget
 
-        # Connect the signals and slots
-        self.language_combo.currentIndexChanged.connect(self.update_server_list)
-        self.password_checkbox.stateChanged.connect(self.update_server_list)
-        self.sort_combo.currentIndexChanged.connect(self.update_server_list)
-        self.table.horizontalHeader().sectionClicked.connect(self.sort_server_list)
-
-    def get_server_list(self):
-        # Fetch the server list from the provided URL using requests library
-        url = 'https://www.battlemetrics.com/servers/scum'
-        response = requests.get(url)
-        soup = BeautifulSoup(response.content, 'html.parser')
-        script_tag = soup.find('script', text=re.compile('var\s+servers\s+='))
+        layout.addWidget(self.table)
         
-        if script_tag is None:
-            print('Script tag not found')
-            return []
-        
-        # Extract the server list from the script tag using regular expressions
-        server_list_json = re.search(r'var\s+servers\s+=\s+JSON.parse\(\'(.*)\'\);\s+', str(script_tag.string)).group(1)
-        server_list = json.loads(server_list_json)
-        
-        # Convert the server list to the format expected by the app
-        filtered_list = []
-        for server in server_list:
-            name = server['attributes']['name']
-            uptime = server['attributes']['details']['uptime']
-            last_played = server['attributes']['details']['lastPlayed']
-            map = server['attributes']['details']['map']
-            player_count = server['attributes']['details']['playerCount']
-            ping = server['attributes']['details']['ping']
-            filtered_list.append({'name': name, 'uptime': uptime, 'last_played': last_played, 'map': map, 'player_count': player_count, 'ping': ping})
-        
-        # Filter by language and password protection
-        language = self.language_combo.currentText()
-        password_protected = self.password_checkbox.isChecked()
-        filtered_list = [server for server in filtered_list if server['name'] != '' and (not language or language == server['language']) and (not password_protected or server['password_protected'])]
-        
-        return filtered_list
+    def start_loading(self):
+        self.progress_bar.show()
+        self.table.hide()
 
+        # Start a new thread to load the server list
+        self.loading_thread = QtCore.QThread()
+        self.loading_worker = ServerListLoader()
+        self.loading_worker.moveToThread(self.loading_thread)
 
-    def sort_server_list(self, server_list):
-        # Sort the server list based on the chosen sort key
-        sort_key = self.sort_combo.currentText()
-        if sort_key == 'Name':
-            server_list.sort(key=lambda x: x['name'])
-        elif sort_key == 'Players':
-            server_list.sort(key=lambda x: x['player_count'])
-        elif sort_key == 'Ping':
-            server_list.sort(key=lambda x: x['ping'])
-        elif sort_key == 'Uptime':
-            server_list.sort(key=lambda x: x['uptime'])
+        # Connect signals to the worker
+        self.loading_worker.finished.connect(self.loading_thread.quit)
+        self.loading_worker.finished.connect(self.loading_worker.deleteLater)
+        self.loading_worker.finished.connect(self.loading_thread.deleteLater)
+        self.loading_worker.progress.connect(self.progress_bar.setValue)
+        self.loading_worker.finished.connect(self.stop_loading)
+        self.loading_worker.error.connect(self.show_loading_error)
+        self.loading_worker.add_server.connect(self.add_server_to_table)
 
-        return server_list
-
-    def update_player_count_label(self):
-        # Update the player count label with the total player count
-        server_list = self.get_server_list()
-        total_player_count = sum([int(server['player_count']) for server in server_list])
-        self.player_count_label.setText(f"Total Players: {total_player_count}")
-
-    def update_server_list(self):
-        # Update the server list table with the filtered and sorted server list
-        self.table.clearContents()
-        self.table.setRowCount(0)
-        server_list = self.get_server_list()
-        server_list = self.sort_server_list(server_list)
-        for i, server in enumerate(server_list):
-            name = server['name']
-            uptime = server['uptime']
-            last_played = server['last_played']
-            map = server['map']
-            player_count = server['player_count']
-            ping = server['ping']
-            self.table.insertRow(i)
-            self.table.setItem(i, 0, QtWidgets.QTableWidgetItem(name))
-            self.table.setItem(i, 1, QtWidgets.QTableWidgetItem(uptime))
-            self.table.setItem(i, 2, QtWidgets.QTableWidgetItem(last_played))
-            self.table.setItem(i, 3, QtWidgets.QTableWidgetItem(map))
-            self.table.setItem(i, 4, QtWidgets.QTableWidgetItem(str(player_count)))
-            self.table.setItem(i, 5, QtWidgets.QTableWidgetItem(str(ping)))
-
-        self.update_player_count_label()
-
-
-    def closeEvent(self, event):
-        # Disconnect the Discord Rich Presence client
-        self.RPC.close()
-        event.accept()
-
-
+        # Start the thread
+        self.loading_thread.started.connect(self.loading_worker.load_server_list)
+        self.loading_thread.start()
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
