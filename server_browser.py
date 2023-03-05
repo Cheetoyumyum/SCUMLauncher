@@ -23,7 +23,7 @@ class ServerBrowser(QtWidgets.QMainWindow):
         # Update the Discord Rich Presence
         try:
             self.RPC.update(
-                details="Only the best",
+                details="Only the",
                 state="Browsing SCUM Servers",
                 large_image="scum",
                 large_text="SCUMLauncher",
@@ -239,7 +239,6 @@ class ServerBrowser(QtWidgets.QMainWindow):
         # Update the RPC status with the new server information
         self.update_rpc_status(server)
 
-
     def stop_loading(self):
         self.progress_bar.hide()
         self.table.show()
@@ -263,7 +262,6 @@ class ServerBrowser(QtWidgets.QMainWindow):
             return Server(server_name, server_players, server_map, server_language, server_uptime, server_ping)
         else:
             return None
-
 
 class ServerListLoader(QtCore.QObject):
     finished = QtCore.pyqtSignal()
@@ -365,7 +363,6 @@ class Server:
         self.dedicated = dedicated
         self.game_tags = game_tags
         self.gameid = gameid
-
         
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
