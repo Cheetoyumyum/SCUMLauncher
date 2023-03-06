@@ -23,7 +23,7 @@ class ServerBrowser(QtWidgets.QMainWindow):
         # Update the Discord Rich Presence
         try:
             self.RPC.update(
-                details="Only the",
+                details="SCUM server browser(Alpha)",
                 state="Browsing SCUM Servers",
                 large_image="scum",
                 large_text="SCUMLauncher",
@@ -276,7 +276,7 @@ class ServerListLoader(QtCore.QObject):
 
     def load_server_list(self):
         try:
-            url = "https://api.battlemetrics.com/servers?filter[game]=scum&page[size]=100"
+            url = "127.0.0.1"
             # Make the request to get the server list
             response = requests.get(url)
             
