@@ -3,18 +3,22 @@ import requests
 from PyQt5 import QtWidgets, QtGui, QtCore
 import time
 import pypresence
+import ctypes
 
+#for fake data/example
+import random
+import string
 
 class ServerBrowser(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        self.init_ui()
-
-    def init_ui(self):
-        # Set the window title and size
         self.setWindowTitle("SCUMLauncher")
-        self.setFixedSize(800, 600)
+        self.setGeometry(0, 0, 800, 600)
 
+        # Create the main layout
+        central_widget = QtWidgets.QWidget()
+        self.setCentralWidget(central_widget)
+        layout = QtWidgets.QVBoxLayout(central_widget)
 
         # Initialize the Discord Rich Presence client
         self.client_id = '1081709857641615442'
@@ -23,7 +27,7 @@ class ServerBrowser(QtWidgets.QMainWindow):
         # Update the Discord Rich Presence
         try:
             self.RPC.update(
-                details="SCUM server browser(Alpha)",
+                details="Only the",
                 state="Browsing SCUM Servers",
                 large_image="scum",
                 large_text="SCUMLauncher",
@@ -201,10 +205,39 @@ class ServerBrowser(QtWidgets.QMainWindow):
             filter_layout.addWidget(checkbox)
         layout.addLayout(filter_layout)
         layout.addWidget(self.table)
+        
+        # Create an instance of the ServerListLoader class
+        self.server_list_loader = ServerListLoader(self.language_combo.currentText(), [checkbox.isChecked() for checkbox in self.filter_checkboxes], None)
+
+        # Connect the add_server signal to a slot that updates the table
+        self.server_list_loader.add_server.connect(self.add_server_to_table)
+
+        # Call the load_server_list method to start loading the server list
+        self.server_list_loader.load_server_list()
+
+    # Add a slot that updates the table with the new server information
+    def add_server_to_table(self, server):
+        print("Adding server to table:", server.name, server.players, server.map, server.language, server.uptime, server.ping)
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+
+        # Populate the row with data from the server object
+        self.table.setItem(row, 0, QtWidgets.QTableWidgetItem(server.name))
+        self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(str(server.players)))
+        self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(server.map))
+        self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(server.language))
+        self.table.setItem(row, 4, QtWidgets.QTableWidgetItem(str(server.uptime)))
+        self.table.setItem(row, 5, QtWidgets.QTableWidgetItem(str(server.ping)))
+
+        # Update the RPC status with the new server information
+        self.update_rpc_status(server)
+        
+        print(f"Added server {server.name} to table")
+
 
     def start_loading(self):
         self.progress_bar.show()
-        self.table.hide()
+        self.table.show()
 
         # Start a new thread to load the server list
         self.loading_thread = QtCore.QThread()
@@ -219,12 +252,37 @@ class ServerBrowser(QtWidgets.QMainWindow):
         self.loading_worker.finished.connect(self.stop_loading)
         self.loading_worker.error.connect(self.show_loading_error)
         self.loading_worker.add_server.connect(self.add_server_to_table)
+        # Generate 70-100 fake servers and add them to the table
+
+        for i in range(random.randint(70, 100)):
+            name = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+            players = random.randint(0, 64)
+            map_name = random.choice(['Island', 'Rainbow', 'Desert'])
+            language = random.choice(['English', 'German', 'French', 'Spanish', 'Italian'])
+            gamedir = 'scum'
+            appid = 1024
+            gameport = random.randint(27000, 27050)
+            steamid = ''.join(random.choices(string.ascii_uppercase + string.digits, k=20))
+            spectator = False
+            version = random.randint(1, 100)
+            edf = random.choice(['', 'EDF2'])
+            port = random.randint(27000, 27050)
+            secure = True
+            bots = random.randint(0, 10)
+            dedicated = True
+            game_tags = random.choice(['pvp', 'pve', 'pvpve', 'nomechs'])
+            gameid = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+
+            server_object = Server(name, players, map_name, language, gamedir, appid, gameport, steamid, spectator, version, edf, port, secure, bots, dedicated, game_tags, gameid)
+            self.add_server.emit(server_object)
+
 
         # Start the thread
         self.loading_thread.started.connect(self.loading_worker.load_server_list)
         self.loading_thread.start()
 
     def add_server_to_table(self, server):
+        print("Adding server to table:", server.name, server.players, server.map, server.language, server.uptime, server.ping)
         row = self.table.rowCount()
         self.table.insertRow(row)
 
@@ -233,11 +291,13 @@ class ServerBrowser(QtWidgets.QMainWindow):
         self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(str(server.players)))
         self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(server.map))
         self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(server.language))
-        self.table.setItem(row, 4, QtWidgets.QTableWidgetItem(server.uptime))
+        self.table.setItem(row, 4, QtWidgets.QTableWidgetItem(str(server.uptime)))
         self.table.setItem(row, 5, QtWidgets.QTableWidgetItem(str(server.ping)))
 
         # Update the RPC status with the new server information
         self.update_rpc_status(server)
+        
+        print(f"Added server {server.name} to table")
 
     def stop_loading(self):
         self.progress_bar.hide()
@@ -269,54 +329,55 @@ class ServerListLoader(QtCore.QObject):
     error = QtCore.pyqtSignal(str)
     add_server = QtCore.pyqtSignal(object)
 
-    def __init__(self, language, filters):
+    def __init__(self, language, filters, token=None):
         super().__init__()
         self.language = language
         self.filters = filters
+        self.token = token
 
     def load_server_list(self):
         try:
-            url = "127.0.0.1"
-            # Make the request to get the server list
-            response = requests.get(url)
-            
-            if response.status_code == 200:
-                server_list = response.json()["data"]
-            else:
-                self.error.emit("Failed to get server list: " + str(response.status_code))
+            # Generate fake servers
+            servers = []
+            total_servers = random.randint(70, 100)
+            while total_servers > 0:
+                batch_size = random.randint(1, 7)
+                if batch_size > total_servers:
+                    batch_size = total_servers
 
-            if response.status_code != 200:
-                raise Exception("Failed to get server list")
+                for i in range(batch_size):
+                    name = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+                    players = random.randint(0, 64)
+                    map_name = random.choice(['Island', 'Rainbow', 'Desert'])
+                    language = random.choice(['English', 'German', 'French', 'Spanish', 'Italian'])
+                    uptime = random.randint(0, 100)
+                    ping = random.randint(0, 200)
 
-            server_list = response.json()["data"]
+                    server = {'attributes': {'name': name, 'players': players, 'details': {'map': map_name, 'language': language}, 'uptime': uptime, 'ping': ping}}
+                    servers.append(server)
 
-            # Loop through the servers and add them to the table
-            for i, server in enumerate(server_list):
-                if not self.passes_filters(server):
-                    continue
+                total_servers -= batch_size
 
-                # Convert the data into a Server object and emit the signal
-                server_object = Server(server["attributes"]["name"],
-                                        server["attributes"]["players"],
-                                        server["attributes"]["details"]["map"],
-                                        server["attributes"]["details"]["language"],
-                                        server["attributes"]["details"]["gamedir"],
-                                        server["attributes"]["details"]["appid"],
-                                        server["attributes"]["details"]["gameport"],
-                                        server["attributes"]["details"]["steamid"],
-                                        server["attributes"]["details"]["spectator"],
-                                        server["attributes"]["details"]["version"],
-                                        server["attributes"]["details"]["edf"],
-                                        server["attributes"]["details"]["port"],
-                                        server["attributes"]["details"]["secure"],
-                                        server["attributes"]["details"]["bots"],
-                                        server["attributes"]["details"]["dedicated"],
-                                        server["attributes"]["details"]["gametags"],
-                                        server["id"])
+            # Filter and sort the server list
+            servers = [server for server in servers if self.passes_filters(server)]
+            servers = sorted(servers, key=lambda s: s['attributes']['name'])
+
+            # Add the servers to the table
+            for server in servers:
+                name = server['attributes']['name']
+                players = server['attributes']['players']
+                map_name = server['attributes']['details']['map']
+                language = server['attributes']['details']['language']
+                uptime = server['attributes']['uptime']
+                ping = server['attributes']['ping']
+
+                server_object = Server(name, players, map_name, language, uptime, ping)
                 self.add_server.emit(server_object)
 
                 # Update the progress bar
-                self.progress.emit(int(i / len(server_list) * 100))
+                self.progress.emit(int(len(servers) / 100 * 100))
+
+                print(f"Emitted signal for server {server_object.name}")
 
         except Exception as e:
             self.error.emit(str(e))
